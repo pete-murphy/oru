@@ -4,7 +4,6 @@ version:       0.0.0
 
 common common
   default-extensions:
-    NoImplicitPrelude
     BlockArguments
     DataKinds
     DeriveAnyClass
@@ -17,11 +16,14 @@ common common
     LambdaCase
     MultiParamTypeClasses
     NamedFieldPuns
+    NoImplicitPrelude
     OverloadedStrings
     RankNTypes
     RecordWildCards
     ScopedTypeVariables
+    StrictData
     TypeApplications
+    TypeFamilies
     TypeOperators
     ViewPatterns
 
@@ -60,3 +62,4 @@ library oru-library
   ghc-options:     -Wall -Werror
   exposed-modules: Oru.Main
   hs-source-dirs:  src
+  other-modules:   Oru.Comment

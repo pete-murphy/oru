@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+
 module Oru.Main where
 
 import Control.Arrow ((<<<), (>>>))
@@ -15,7 +17,23 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Data.Traversable qualified as Traversable
+import Network.Wai.Handler.Warp qualified as Warp
+import Network.Wai.Middleware.Cors qualified as Cors
 import Numeric qualified
+import Servant
+  ( Get,
+    Handler (Handler),
+    HasServer (ServerT),
+    JSON,
+    Post,
+    QueryParam,
+    QueryParams,
+    Server,
+    type (:>),
+  )
+import Servant qualified
+import Servant.API.Generic (AsApi, ToServant, (:-))
+import Servant.Server.Generic qualified as Server
 import System.Directory qualified as Directory
 import System.FilePath ((</>))
 import Prelude
@@ -37,12 +55,12 @@ type TermFrequency =
 main :: IO ()
 main = do
   cwd <- Directory.getCurrentDirectory
-  let assetsDirectory = cwd </> "assets"
-  files <- Directory.listDirectory assetsDirectory
+  let commentsDirectory = cwd </> "comments"
+  files <- Directory.listDirectory commentsDirectory
   oruIndex' <-
     HashMap.fromList
       <$> Traversable.for files \file -> do
-        contents <- Text.readFile (assetsDirectory </> file)
+        contents <- Text.readFile (commentsDirectory </> file)
         let count = termCount contents
         pure (file, termFrequency count)
 
@@ -100,6 +118,6 @@ tfidf ::
   -- | score
   HashMap Filename Double
 tfidf index search = do
-  let terms = Text.words search
+  let terms = Maybe.mapMaybe normalize (Text.words search)
       fnmap = terms <&> \term -> HashMap.lookupDefault mempty term index
   foldr (HashMap.unionWith (+)) mempty fnmap
