@@ -1,0 +1,62 @@
+cabal-version: 3.0
+name:          backend
+version:       0.0.0
+
+common common
+  default-extensions:
+    NoImplicitPrelude
+    BlockArguments
+    DataKinds
+    DeriveAnyClass
+    DeriveGeneric
+    DerivingStrategies
+    DuplicateRecordFields
+    FlexibleContexts
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    LambdaCase
+    MultiParamTypeClasses
+    NamedFieldPuns
+    OverloadedStrings
+    RankNTypes
+    RecordWildCards
+    ScopedTypeVariables
+    TypeApplications
+    TypeOperators
+    ViewPatterns
+
+  build-depends:
+    , aeson
+    , base                  ^>=4.17.1.0
+    , bytestring
+    , containers
+    , directory
+    , filepath
+    , http-client
+    , http-client-tls
+    , json-spec
+    , json-spec-elm
+    , lens
+    -- , lens-regex
+    -- , lens-regex-pcre
+    , postgresql-simple
+    , servant
+    , servant-server
+    , text
+    -- , text-icu
+    , unordered-containers
+    , wai-cors
+    , warp
+
+executable oru-server
+  import:         common
+  build-depends:  oru-library
+  main-is:        Main.hs
+  hs-source-dirs: app
+  ghc-options:    -Wall -Werror -threaded -O -with-rtsopts=-N
+
+library oru-library
+  import:          common
+  ghc-options:     -Wall -Werror
+  exposed-modules: Oru.Main
+  hs-source-dirs:  src
