@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- {-# OPTIONS_GHC -Wno-unused-imports #-}
-
 module Oru.Main where
 
 import Control.Arrow ((<<<), (>>>))
@@ -15,7 +13,7 @@ import Data.HashMap.Lazy (HashMap)
 import Data.HashMap.Lazy qualified as HashMap
 import Data.List qualified as List
 import Data.Maybe qualified as Maybe
--- import Data.Ord (Down (..))
+import Data.Ord (Down (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
@@ -27,22 +25,8 @@ import Network.HTTP.Types.Header qualified as Header
 import Network.Wai (Application)
 import Network.Wai qualified as Wai
 import Network.Wai.Handler.Warp qualified as Warp
--- import Network.Wai.Middleware.Cors qualified as Cors
--- import Numeric qualified
--- import Servant
---   ( Get,
---     Handler (Handler),
---     HasServer (ServerT),
---     JSON,
---     Post,
---     QueryParam,
---     QueryParams,
---     Server,
---     type (:>),
---   )
--- import Servant qualified
--- import Servant.API.Generic (AsApi, ToServant, (:-))
--- import Servant.Server.Generic qualified as Server
+import Network.Wai.Middleware.Cors qualified as Cors
+import Numeric qualified
 import System.Directory qualified as Directory
 import System.FilePath ((</>))
 import Prelude
@@ -79,38 +63,36 @@ main = do
           <&> HashMap.mapWithKey \term frequency ->
             frequency * idf term
 
-  let invertedOruIndex = HashMap.fromListWith HashMap.union do
+      invertedOruIndex = HashMap.fromListWith HashMap.union do
         (filename, frequencyMap) <- HashMap.toList oruIndex
         (term, frequency) <- HashMap.toList frequencyMap
         pure (term, HashMap.singleton filename frequency)
-  let tfidf' = tfidf invertedOruIndex
-  Warp.run 3000 (app tfidf')
+      tfidf' = tfidf invertedOruIndex
+  Warp.run 3000 (Cors.simpleCors (app tfidf'))
 
 app :: (Text -> HashMap Filename Double) -> Application
 app tfidf' request response = do
   Debug.traceShowM request
-  let query =
+  let result =
         Wai.queryString request
           & List.lookup "q"
           & Monad.join
           <&> (Text.decodeUtf8 >>> tfidf')
           & Maybe.fromMaybe mempty
+          & HashMap.toList
+          & List.sortOn (Down <<< snd)
+          & take 20
+          <&> ( \(filename, score) ->
+                  Text.pack filename <> ": " <> Text.pack (Numeric.showFFloat (Just 3) score "")
+              )
+          & Text.unlines
+          & Text.encodeUtf8
+          & ByteString.fromStrict
   response do
     Wai.responseLBS
       HTTP.Types.status200
       [(Header.hContentType, "text/plain")]
-      (ByteString.fromStrict (Text.encodeUtf8 (Text.pack (show query))))
-
--- Monad.void do
---   Monad.forever do
---     Text.putStrLn "Enter search term:"
---     searchTerm <- Text.getLine
---     tfidf' searchTerm
---       & HashMap.toList
---       & List.sortOn (Down <<< snd)
---       & take 20
---       & Foldable.traverse_ \(filename, score) -> do
---         Text.putStrLn (Text.pack filename <> ":\t" <> Text.pack (Numeric.showFFloat (Just 3) score ""))
+      result
 
 normalize :: Text -> Maybe Text
 normalize =

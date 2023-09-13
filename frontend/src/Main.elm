@@ -2,13 +2,17 @@ module Main exposing (..)
 
 import Browser
 import Html exposing (Html)
+import Html.Attributes as Attributes
 import Html.Events as Events
 import Http
 import Maybe exposing (Maybe(..))
+import Url.Builder
 
 
 type alias Model =
-    Maybe String
+    { search : String
+    , response : Maybe String
+    }
 
 
 main : Program () Model Msg
@@ -23,49 +27,68 @@ main =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Nothing, Cmd.none )
+    ( { response = Nothing, search = "" }, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg _ =
+update msg model =
     case msg of
-        GotBook (Ok book) ->
-            ( Just book, Cmd.none )
+        Response (Ok response) ->
+            ( { model | response = Just response }, Cmd.none )
 
-        GotBook (Err _) ->
-            ( Nothing, Cmd.none )
+        Response (Err _) ->
+            ( { model | response = Just "Bad" }, Cmd.none )
 
-        GotItems (Ok items) ->
-            ( List.head items, Cmd.none )
+        SubmitForm ->
+            ( model, get model.search )
 
-        GotItems (Err _) ->
-            ( Nothing, Cmd.none )
-
-        GetBook ->
-            ( Nothing, getBook )
+        SetSearch search ->
+            ( { model | search = search }, get search )
 
 
 type Msg
-    = GotBook (Result Http.Error String)
-    | GotItems (Result Http.Error (List String))
-    | GetBook
+    = SubmitForm
+    | SetSearch String
+    | Response (Result Http.Error String)
 
 
-getBook : Cmd Msg
-getBook =
+get : String -> Cmd Msg
+get search =
     Http.get
-        { url = "https://elm-lang.org/assets/public-opinion.txt"
-        , expect = Http.expectString GotBook
+        { url = Url.Builder.crossOrigin "http://localhost:3000" [] [ Url.Builder.string "q" search ]
+        , expect = Http.expectString Response
         }
+
+
+
+-- get : String -> Cmd Msg
+-- get search =
+--     Http.get
+--         { url = "http://localhost:3000?q=" ++ search
+--         , expect = Http.expectString Response
+--         }
+-- formUrlencoded : List ( String, String ) -> String
+-- formUrlencoded object =
+--     object
+--         |> List.map
+--             (\( name, value ) ->
+--                 Http.encodeUri name
+--                     ++ "="
+--                     ++ Http.encodeUri value
+--             )
+--         |> String.join "&"
 
 
 view : Model -> Html Msg
 view model =
-    let
-        text =
-            Maybe.withDefault "No book" model
-    in
     Html.div []
-        [ Html.button [ Events.onClick GetBook ] [ Html.text "Get book" ]
-        , Html.div [] [ Html.text text ]
+        [ Html.form [ Events.onSubmit SubmitForm ]
+            [ Html.input
+                [ Attributes.value model.search
+                , Events.onInput SetSearch
+                ]
+                []
+            , Html.button [] [ Html.text "Search" ]
+            , Html.pre [] [ Html.text (Maybe.withDefault "" model.response) ]
+            ]
         ]
