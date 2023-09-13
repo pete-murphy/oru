@@ -1,9 +1,12 @@
-{-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+-- {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Oru.Main where
 
 import Control.Arrow ((<<<), (>>>))
 import Control.Monad qualified as Monad
+import Data.ByteString.Lazy qualified as ByteString
 import Data.Char qualified as Char
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
@@ -12,28 +15,34 @@ import Data.HashMap.Lazy (HashMap)
 import Data.HashMap.Lazy qualified as HashMap
 import Data.List qualified as List
 import Data.Maybe qualified as Maybe
-import Data.Ord (Down (..))
+-- import Data.Ord (Down (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as Text
 import Data.Traversable qualified as Traversable
+import Debug.Trace qualified as Debug
+import Network.HTTP.Types qualified as HTTP.Types
+import Network.HTTP.Types.Header qualified as Header
+import Network.Wai (Application)
+import Network.Wai qualified as Wai
 import Network.Wai.Handler.Warp qualified as Warp
-import Network.Wai.Middleware.Cors qualified as Cors
-import Numeric qualified
-import Servant
-  ( Get,
-    Handler (Handler),
-    HasServer (ServerT),
-    JSON,
-    Post,
-    QueryParam,
-    QueryParams,
-    Server,
-    type (:>),
-  )
-import Servant qualified
-import Servant.API.Generic (AsApi, ToServant, (:-))
-import Servant.Server.Generic qualified as Server
+-- import Network.Wai.Middleware.Cors qualified as Cors
+-- import Numeric qualified
+-- import Servant
+--   ( Get,
+--     Handler (Handler),
+--     HasServer (ServerT),
+--     JSON,
+--     Post,
+--     QueryParam,
+--     QueryParams,
+--     Server,
+--     type (:>),
+--   )
+-- import Servant qualified
+-- import Servant.API.Generic (AsApi, ToServant, (:-))
+-- import Servant.Server.Generic qualified as Server
 import System.Directory qualified as Directory
 import System.FilePath ((</>))
 import Prelude
@@ -75,17 +84,33 @@ main = do
         (term, frequency) <- HashMap.toList frequencyMap
         pure (term, HashMap.singleton filename frequency)
   let tfidf' = tfidf invertedOruIndex
+  Warp.run 3000 (app tfidf')
 
-  Monad.void do
-    Monad.forever do
-      Text.putStrLn "Enter search term:"
-      searchTerm <- Text.getLine
-      tfidf' searchTerm
-        & HashMap.toList
-        & List.sortOn (Down <<< snd)
-        & take 20
-        & Foldable.traverse_ \(filename, score) -> do
-          Text.putStrLn (Text.pack filename <> ":\t" <> Text.pack (Numeric.showFFloat (Just 3) score ""))
+app :: (Text -> HashMap Filename Double) -> Application
+app tfidf' request response = do
+  Debug.traceShowM request
+  let query =
+        Wai.queryString request
+          & List.lookup "q"
+          & Monad.join
+          <&> (Text.decodeUtf8 >>> tfidf')
+          & Maybe.fromMaybe mempty
+  response do
+    Wai.responseLBS
+      HTTP.Types.status200
+      [(Header.hContentType, "text/plain")]
+      (ByteString.fromStrict (Text.encodeUtf8 (Text.pack (show query))))
+
+-- Monad.void do
+--   Monad.forever do
+--     Text.putStrLn "Enter search term:"
+--     searchTerm <- Text.getLine
+--     tfidf' searchTerm
+--       & HashMap.toList
+--       & List.sortOn (Down <<< snd)
+--       & take 20
+--       & Foldable.traverse_ \(filename, score) -> do
+--         Text.putStrLn (Text.pack filename <> ":\t" <> Text.pack (Numeric.showFFloat (Just 3) score ""))
 
 normalize :: Text -> Maybe Text
 normalize =

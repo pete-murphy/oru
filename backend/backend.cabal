@@ -36,6 +36,7 @@ common common
     , filepath
     , http-client
     , http-client-tls
+    , http-types
     , json-spec
     , json-spec-elm
     , lens
@@ -47,6 +48,7 @@ common common
     , text
     -- , text-icu
     , unordered-containers
+    , wai
     , wai-cors
     , warp
 
