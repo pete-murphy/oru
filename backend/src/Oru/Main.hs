@@ -4,7 +4,7 @@ module Oru.Main where
 
 import Control.Arrow ((<<<), (>>>))
 import Control.Monad qualified as Monad
-import Data.ByteString.Lazy qualified as ByteString
+import Data.ByteString.Lazy qualified as ByteString.Lazy
 import Data.Char qualified as Char
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
@@ -87,7 +87,7 @@ app tfidf' request response = do
               )
           & Text.unlines
           & Text.encodeUtf8
-          & ByteString.fromStrict
+          & ByteString.Lazy.fromStrict
   response do
     Wai.responseLBS
       HTTP.Types.status200

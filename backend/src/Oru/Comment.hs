@@ -12,20 +12,16 @@ data Comment = Comment
   }
   deriving (Show)
 
-(/\) :: a -> b -> (a, b)
-(/\) = (,)
-
-infixr 9 /\
+type CommentSpec =
+  JsonObject
+    '[ '("title", JsonString),
+       '("slug", JsonString),
+       '("rating", JsonNullable JsonInt),
+       '("body", JsonString)
+     ]
 
 instance HasJsonEncodingSpec Comment where
-  type
-    EncodingSpec Comment =
-      JsonObject
-        '[ '("title", JsonString),
-           '("slug", JsonString),
-           '("rating", JsonNullable JsonInt),
-           '("body", JsonString)
-         ]
+  type EncodingSpec Comment = CommentSpec
   toJSONStructure Comment {..} =
     Field @"title" commentTitle
       /\ Field @"slug" commentSlug
@@ -34,14 +30,7 @@ instance HasJsonEncodingSpec Comment where
       /\ ()
 
 instance HasJsonDecodingSpec Comment where
-  type
-    DecodingSpec Comment =
-      JsonObject
-        '[ '("title", JsonString),
-           '("slug", JsonString),
-           '("rating", JsonNullable JsonInt),
-           '("body", JsonString)
-         ]
+  type DecodingSpec Comment = CommentSpec
   fromJSONStructure
     ( Field @"title" commentTitle,
       ( Field @"slug" commentSlug,
@@ -52,3 +41,8 @@ instance HasJsonDecodingSpec Comment where
           )
         )
       ) = pure Comment {..}
+
+(/\) :: a -> b -> (a, b)
+(/\) = (,)
+
+infixr 9 /\

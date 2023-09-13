@@ -63,5 +63,14 @@ library oru-library
   import:          common
   ghc-options:     -Wall -Werror
   exposed-modules: Oru.Main
+                 , Oru.Comment
   hs-source-dirs:  src
-  other-modules:   Oru.Comment
+
+executable oru-generate-elm
+  import:         common
+  build-depends:  oru-library
+                , elm-syntax
+                , prettyprinter
+  main-is:        Main.hs
+  hs-source-dirs: generate-elm
+  ghc-options:    -Wall -Werror -threaded -O -with-rtsopts=-N
