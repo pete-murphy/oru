@@ -29,7 +29,7 @@ commentEncoder a =
     Json.Encode.object
         [ ( "title", Json.Encode.string a.title )
         , ( "slug", Json.Encode.string a.slug )
-        , ( "rating", (\b -> Maybe.withDefault Json.Decode.null (Maybe.map Json.Encode.int b)) a.rating )
+        , ( "rating", (\b -> Maybe.withDefault Json.Encode.null (Maybe.map Json.Encode.int b)) a.rating )
         , ( "body", Json.Encode.string a.body )
         ]
 

@@ -1,0 +1,11 @@
+{
+    "targets": {
+        "oru": {
+            "inputs": [
+                "src/Main.elm"
+            ],
+            "output": "build/main.js"
+        }
+    },
+    "serve": "."
+}

@@ -1,33 +1,38 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html)
+import Browser.Navigation as Navigation
+import Html
 import Html.Attributes as Attributes
 import Html.Events as Events
 import Http
 import Maybe exposing (Maybe(..))
+import Url exposing (Url)
 import Url.Builder
 
 
 type alias Model =
     { search : String
     , response : Maybe String
+    , session : Navigation.Key
     }
 
 
 main : Program () Model Msg
 main =
-    Browser.element
+    Browser.application
         { init = init
         , update = update
         , view = view
         , subscriptions = \_ -> Sub.none
+        , onUrlChange = UrlChanged
+        , onUrlRequest = UrlRequested
         }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( { response = Nothing, search = "" }, Cmd.none )
+init : () -> Url -> Navigation.Key -> ( Model, Cmd Msg )
+init _ _ key =
+    ( { response = Nothing, search = "", session = key }, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -43,52 +48,50 @@ update msg model =
             ( model, get model.search )
 
         SetSearch search ->
-            ( { model | search = search }, get search )
+            ( model, Navigation.pushUrl model.session (Url.Builder.relative [] [ Url.Builder.string "q" search ]) )
+
+        UrlRequested _ ->
+            ( model, Cmd.none )
+
+        UrlChanged _ ->
+            ( model, Cmd.none )
 
 
 type Msg
     = SubmitForm
     | SetSearch String
     | Response (Result Http.Error String)
+    | UrlRequested Browser.UrlRequest
+    | UrlChanged Url
 
 
 get : String -> Cmd Msg
 get search =
     Http.get
-        { url = Url.Builder.crossOrigin "http://localhost:3000" [] [ Url.Builder.string "q" search ]
-        , expect = Http.expectString Response
+        { url =
+            Url.Builder.crossOrigin
+                "http://localhost:3000"
+                []
+                [ Url.Builder.string "q" search ]
+        , expect =
+            Http.expectString Response
         }
 
 
-
--- get : String -> Cmd Msg
--- get search =
---     Http.get
---         { url = "http://localhost:3000?q=" ++ search
---         , expect = Http.expectString Response
---         }
--- formUrlencoded : List ( String, String ) -> String
--- formUrlencoded object =
---     object
---         |> List.map
---             (\( name, value ) ->
---                 Http.encodeUri name
---                     ++ "="
---                     ++ Http.encodeUri value
---             )
---         |> String.join "&"
-
-
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    Html.div []
-        [ Html.form [ Events.onSubmit SubmitForm ]
-            [ Html.input
-                [ Attributes.value model.search
-                , Events.onInput SetSearch
+    Browser.Document
+        "Oru"
+        [ Html.div []
+            [ Html.form [ Events.onSubmit SubmitForm ]
+                [ Html.input
+                    [ Attributes.type_ "search"
+                    , Attributes.value model.search
+                    , Events.onInput SetSearch
+                    ]
+                    []
+                , Html.button [] [ Html.text "Search" ]
                 ]
-                []
-            , Html.button [] [ Html.text "Search" ]
             , Html.pre [] [ Html.text (Maybe.withDefault "" model.response) ]
             ]
         ]
