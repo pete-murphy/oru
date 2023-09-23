@@ -9,6 +9,7 @@ import Http
 import Maybe exposing (Maybe(..))
 import Url exposing (Url)
 import Url.Builder
+import Url.Parser exposing ((</>), (<?>))
 
 
 type alias Model =
@@ -38,10 +39,10 @@ init _ _ key =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Response (Ok response) ->
+        GotResponse (Ok response) ->
             ( { model | response = Just response }, Cmd.none )
 
-        Response (Err _) ->
+        GotResponse (Err _) ->
             ( { model | response = Just "Bad" }, Cmd.none )
 
         SubmitForm ->
@@ -53,14 +54,23 @@ update msg model =
         UrlRequested _ ->
             ( model, Cmd.none )
 
-        UrlChanged _ ->
-            ( model, Cmd.none )
+        UrlChanged url ->
+            let
+                maybeSearch =
+                    Maybe.map (String.dropLeft 2 >> Url.percentDecode) url.query
+            in
+            case maybeSearch of
+                Just (Just search) ->
+                    ( { model | search = search }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
 
 
 type Msg
     = SubmitForm
     | SetSearch String
-    | Response (Result Http.Error String)
+    | GotResponse (Result Http.Error String)
     | UrlRequested Browser.UrlRequest
     | UrlChanged Url
 
@@ -74,7 +84,7 @@ get search =
                 []
                 [ Url.Builder.string "q" search ]
         , expect =
-            Http.expectString Response
+            Http.expectString GotResponse
         }
 
 
