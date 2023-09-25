@@ -2,19 +2,22 @@ module Main exposing (..)
 
 import Browser
 import Browser.Navigation as Navigation
+import Comment exposing (Comment(..), Preview(..))
 import Html
 import Html.Attributes as Attributes
 import Html.Events as Events
 import Http
 import Maybe exposing (Maybe(..))
+import Slug
 import Url exposing (Url)
 import Url.Builder
-import Url.Parser exposing ((</>), (<?>))
+import Url.Parser
+import Url.Parser.Query
 
 
 type alias Model =
     { search : String
-    , response : Maybe String
+    , response : Maybe (List ( Comment Preview, Float ))
     , session : Navigation.Key
     }
 
@@ -42,11 +45,16 @@ update msg model =
         GotResponse (Ok response) ->
             ( { model | response = Just response }, Cmd.none )
 
-        GotResponse (Err _) ->
-            ( { model | response = Just "Bad" }, Cmd.none )
+        GotResponse (Err error) ->
+            let
+                _ =
+                    Debug.log "error" error
+            in
+            ( { model | response = Just [] }, Cmd.none )
 
         SubmitForm ->
-            ( model, get model.search )
+            --  (\xys -> GotResponse (Result.map (List.map (\( y, x ) -> ( x, y ))) xys)) )k
+            ( model, Comment.listWithSearch model.search GotResponse )
 
         SetSearch search ->
             ( model, Navigation.pushUrl model.session (Url.Builder.relative [] [ Url.Builder.string "q" search ]) )
@@ -57,7 +65,8 @@ update msg model =
         UrlChanged url ->
             let
                 maybeSearch =
-                    Maybe.map (String.dropLeft 2 >> Url.percentDecode) url.query
+                    { url | path = "" }
+                        |> Url.Parser.parse (Url.Parser.query (Url.Parser.Query.string "q"))
             in
             case maybeSearch of
                 Just (Just search) ->
@@ -70,26 +79,42 @@ update msg model =
 type Msg
     = SubmitForm
     | SetSearch String
-    | GotResponse (Result Http.Error String)
+    | GotResponse (Result Http.Error (List ( Comment Preview, Float )))
     | UrlRequested Browser.UrlRequest
     | UrlChanged Url
 
 
-get : String -> Cmd Msg
-get search =
-    Http.get
-        { url =
-            Url.Builder.crossOrigin
-                "http://localhost:3000"
-                []
-                [ Url.Builder.string "q" search ]
-        , expect =
-            Http.expectString GotResponse
-        }
+
+-- get : String -> Cmd Msg
+-- get search =
+--     Http.get
+--         -- Http.re
+--         { url =
+--             Url.Builder.crossOrigin
+--                 "http://localhost:3000"
+--                 []
+--                 [ Url.Builder.string "q" search ]
+--         , expect =
+--             Http.expectString GotResponse
+--         }
 
 
 view : Model -> Browser.Document Msg
 view model =
+    let
+        responseString =
+            case model.response of
+                Just response ->
+                    response
+                        |> List.map
+                            (\( Comment { slug } Preview, score ) ->
+                                Slug.toString slug ++ ": " ++ String.fromFloat score
+                            )
+                        |> String.join "\n"
+
+                Nothing ->
+                    ""
+    in
     Browser.Document
         "Oru"
         [ Html.div []
@@ -100,8 +125,11 @@ view model =
                     , Events.onInput SetSearch
                     ]
                     []
-                , Html.button [] [ Html.text "Search" ]
+                , Html.button
+                    [ Attributes.class "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                    ]
+                    [ Html.text "Search" ]
                 ]
-            , Html.pre [] [ Html.text (Maybe.withDefault "" model.response) ]
+            , Html.pre [] [ Html.text responseString ]
             ]
         ]

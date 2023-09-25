@@ -4,7 +4,7 @@ module Oru.Main where
 
 import Control.Arrow ((<<<), (>>>))
 import Control.Monad qualified as Monad
-import Data.ByteString.Lazy qualified as ByteString.Lazy
+import Data.Aeson qualified as Aeson
 import Data.Char qualified as Char
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
@@ -26,7 +26,7 @@ import Network.Wai (Application)
 import Network.Wai qualified as Wai
 import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Middleware.Cors qualified as Cors
-import Numeric qualified
+import Oru.Comment (Comment (Comment), Internals (..), Preview (..), PreviewComment (..))
 import System.Directory qualified as Directory
 import System.FilePath ((</>))
 import Prelude
@@ -73,6 +73,7 @@ main = do
 app :: (Text -> HashMap Filename Double) -> Application
 app tfidf' request response = do
   Debug.traceShowM request
+
   let result =
         Wai.queryString request
           & List.lookup "q"
@@ -82,16 +83,21 @@ app tfidf' request response = do
           & HashMap.toList
           & List.sortOn (Down <<< snd)
           & take 20
-          <&> ( \(filename, score) ->
-                  Text.pack filename <> ": " <> Text.pack (Numeric.showFFloat (Just 3) score "")
-              )
-          & Text.unlines
-          & Text.encodeUtf8
-          & ByteString.Lazy.fromStrict
+          & map
+            ( \(slug, score) ->
+                -- TODO: Clean up???
+                ( PreviewComment
+                    (Comment (Internals {commentTitle = "TODO", commentSlug = Text.pack slug, commentRating = Nothing}) Preview),
+                  realToFrac score :: Float
+                )
+            )
+          & Aeson.encode
+
   response do
     Wai.responseLBS
       HTTP.Types.status200
-      [(Header.hContentType, "text/plain")]
+      -- [(Header.hContentType, "text/plain")]
+      [(Header.hContentType, "application/json")]
       result
 
 normalize :: Text -> Maybe Text

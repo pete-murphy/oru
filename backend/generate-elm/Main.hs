@@ -15,7 +15,7 @@ import Data.Text qualified as Text
 import Data.Text.IO qualified as Text.IO
 import Language.Elm.Name (Module)
 import Language.Elm.Pretty qualified as Elm.Pretty
-import Oru.Comment (CommentSpec)
+import Oru.Comment (FullCommentSpec, PreviewCommentSpec)
 import Prettyprinter qualified
 import Prettyprinter.Render.Text qualified as Render.Text
 import System.Directory qualified as Directory
@@ -27,16 +27,17 @@ main = do
   exists <- Directory.doesDirectoryExist frontendDirectory
   if exists
     then do
-      let actual :: HashMap Module Text
-          actual =
-            Elm.elmDefs (Proxy @(Named "Comment" CommentSpec))
+      let generated :: HashMap Module Text
+          generated =
+            Elm.elmDefs (Proxy @(Named "FullComment" FullCommentSpec))
+              <> Elm.elmDefs (Proxy @(Named "PreviewComment" PreviewCommentSpec))
               & Set.toList
               & Elm.Pretty.modules
               <&> ( Prettyprinter.layoutPretty Prettyprinter.defaultLayoutOptions
                       >>> Render.Text.renderStrict
                       >>> (<> "\n")
                   )
-      Foldable.traverse_ writeModule (HashMap.toList actual)
+      Foldable.traverse_ writeModule (HashMap.toList generated)
     else putStrLn ("frontend directory does not exist at: " <> frontendDirectory)
 
 frontendDirectory :: FilePath
