@@ -3,7 +3,7 @@ module Api exposing
     , get
     )
 
-{-| This module is responsible for communicating to the Conduit API.
+{-| This module is responsible for communicating to the API.
 
 It exposes an opaque Endpoint type which is guaranteed to point to the correct URL.
 

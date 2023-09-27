@@ -53,7 +53,6 @@ update msg model =
             ( { model | response = Just [] }, Cmd.none )
 
         SubmitForm ->
-            --  (\xys -> GotResponse (Result.map (List.map (\( y, x ) -> ( x, y ))) xys)) )k
             ( model, Comment.listWithSearch model.search GotResponse )
 
         SetSearch search ->
@@ -102,18 +101,27 @@ type Msg
 view : Model -> Browser.Document Msg
 view model =
     let
-        responseString =
+        renderedResponse =
             case model.response of
                 Just response ->
-                    response
-                        |> List.map
-                            (\( Comment { slug } Preview, score ) ->
-                                Slug.toString slug ++ ": " ++ String.fromFloat score
-                            )
-                        |> String.join "\n"
+                    Html.ul []
+                        (response
+                            |> List.map
+                                (\( Comment { title, movieTitle, rating } Preview, score ) ->
+                                    Html.li []
+                                        [ Html.div []
+                                            [ Html.text title
+                                            , Html.text movieTitle
+                                            ]
+                                        , Html.text (Maybe.withDefault "N/A" (Maybe.map String.fromInt rating))
+                                        , Html.text (String.fromFloat score)
+                                        ]
+                                 -- Slug.toString slug ++ ": " ++ String.fromFloat score
+                                )
+                        )
 
                 Nothing ->
-                    ""
+                    Html.p [] [ Html.text "Nothing" ]
     in
     Browser.Document
         "Oru"
@@ -130,6 +138,6 @@ view model =
                     ]
                     [ Html.text "Search" ]
                 ]
-            , Html.pre [] [ Html.text responseString ]
+            , renderedResponse
             ]
         ]

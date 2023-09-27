@@ -33,6 +33,7 @@ type Comment a
 
 type alias Internals =
     { title : String
+    , movieTitle : String
     , id : CommentId
     , slug : Slug
     , rating : Maybe Int
@@ -52,9 +53,10 @@ type Body
 
 
 encode : Comment Full -> Encode.Value
-encode (Comment { title, slug, rating } (Full (Body body))) =
+encode (Comment { title, movieTitle, slug, rating } (Full (Body body))) =
     Api.Data.fullCommentEncoder
         { title = title
+        , movieTitle = movieTitle
         , slug = Slug.toString slug
         , rating = rating
         , body = body
@@ -62,9 +64,10 @@ encode (Comment { title, slug, rating } (Full (Body body))) =
 
 
 encodePreview : Comment Preview -> Encode.Value
-encodePreview (Comment { title, slug, rating } Preview) =
+encodePreview (Comment { title, movieTitle, slug, rating } Preview) =
     Api.Data.previewCommentEncoder
         { title = title
+        , movieTitle = movieTitle
         , slug = Slug.toString slug
         , rating = rating
         }
@@ -74,11 +77,12 @@ decoder : Decode.Decoder (Comment Full)
 decoder =
     Api.Data.fullCommentDecoder
         |> Decode.andThen
-            (\{ title, rating, body } ->
+            (\{ title, movieTitle, rating, body } ->
                 Decode.field "slug" Slug.decoder
                     |> Decode.map
                         (\slug ->
                             { title = title
+                            , movieTitle = movieTitle
                             , slug = slug
                             , rating = rating
                             , body = body
@@ -86,12 +90,13 @@ decoder =
                         )
             )
         |> Decode.andThen
-            (\{ title, slug, rating, body } ->
+            (\{ title, movieTitle, slug, rating, body } ->
                 -- TODO: Don't use the slug as the id
                 Decode.field "slug" CommentId.decoder
                     |> Decode.map
                         (\id ->
                             { title = title
+                            , movieTitle = movieTitle
                             , id = id
                             , slug = slug
                             , rating = rating
@@ -100,9 +105,10 @@ decoder =
                         )
             )
         |> Decode.map
-            (\{ title, id, slug, rating, body } ->
+            (\{ title, movieTitle, id, slug, rating, body } ->
                 Comment
                     { title = title
+                    , movieTitle = movieTitle
                     , id = id
                     , slug = slug
                     , rating = rating
@@ -115,23 +121,25 @@ decoderPreview : Decode.Decoder (Comment Preview)
 decoderPreview =
     Api.Data.previewCommentDecoder
         |> Decode.andThen
-            (\{ title, rating } ->
+            (\{ title, movieTitle, rating } ->
                 Decode.field "slug" Slug.decoder
                     |> Decode.map
                         (\slug ->
                             { title = title
+                            , movieTitle = movieTitle
                             , slug = slug
                             , rating = rating
                             }
                         )
             )
         |> Decode.andThen
-            (\{ title, slug, rating } ->
+            (\{ title, movieTitle, slug, rating } ->
                 -- TODO: Don't use the slug as the id
                 Decode.field "slug" CommentId.decoder
                     |> Decode.map
                         (\id ->
                             { title = title
+                            , movieTitle = movieTitle
                             , id = id
                             , slug = slug
                             , rating = rating

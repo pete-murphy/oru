@@ -34,19 +34,20 @@ common common
     , containers
     , directory
     , filepath
+    , frontmatter
     , http-client
     , http-client-tls
     , http-types
     , json-spec
     , json-spec-elm
     , lens
-    -- , lens-regex
-    -- , lens-regex-pcre
+    , lens-aeson
+    , mtl
     , postgresql-simple
     , servant
     , servant-server
     , text
-    -- , text-icu
+    , transformers
     , unordered-containers
     , wai
     , wai-cors

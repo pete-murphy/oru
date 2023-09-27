@@ -7,6 +7,7 @@ import Control.Monad qualified as Monad
 import Data.Aeson qualified as Aeson
 import Data.Char qualified as Char
 import Data.Foldable qualified as Foldable
+import Data.Frontmatter qualified as Frontmatter
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.HashMap.Lazy (HashMap)
@@ -26,7 +27,8 @@ import Network.Wai (Application)
 import Network.Wai qualified as Wai
 import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Middleware.Cors qualified as Cors
-import Oru.Comment (Comment (Comment), Internals (..), Preview (..), PreviewComment (..))
+import Oru.Comment (Comment (..), Internals (..), Preview (..), PreviewComment (..))
+import Oru.Comment qualified as Comment
 import System.Directory qualified as Directory
 import System.FilePath ((</>))
 import Prelude
@@ -36,8 +38,7 @@ type Filename = String
 type OruIndex =
   HashMap Filename TermFrequency
 
-type InvertedOruIndex =
-  HashMap Text (HashMap Filename Double)
+-- type InvertedOruIndex =
 
 type TermCount =
   HashMap Text Int
@@ -49,15 +50,20 @@ main :: IO ()
 main = do
   cwd <- Directory.getCurrentDirectory
   let commentsDirectory = cwd </> "comments"
-  files <- Directory.listDirectory commentsDirectory
-  oruIndex' <-
+  filePaths <- Directory.listDirectory commentsDirectory
+  fileDataByFilePath <- do
     HashMap.fromList
-      <$> Traversable.for files \file -> do
-        contents <- Text.readFile (commentsDirectory </> file)
-        let count = termCount contents
-        pure (file, termFrequency count)
+      <$> Traversable.for filePaths \filePath -> do
+        contents <- Text.readFile (commentsDirectory </> filePath)
+        let frontmatter :: Comment.Frontmatter =
+              Frontmatter.parseYamlFrontmatterEither (Text.encodeUtf8 contents)
+                & onLeft \msg -> error ("Failed to parse " <> filePath <> ":\n\n" <> msg)
+            count = termCount contents
+        pure (filePath, (frontmatter, termFrequency count))
 
-  let idf = inverseDocumentFrequency (HashMap.elems oruIndex')
+  let oruIndex' = snd <$> fileDataByFilePath
+      frontmatterByFilePath = fst <$> fileDataByFilePath
+      idf = inverseDocumentFrequency (HashMap.elems oruIndex')
       oruIndex =
         oruIndex'
           <&> HashMap.mapWithKey \term frequency ->
@@ -67,10 +73,15 @@ main = do
         (filename, frequencyMap) <- HashMap.toList oruIndex
         (term, frequency) <- HashMap.toList frequencyMap
         pure (term, HashMap.singleton filename frequency)
-      tfidf' = tfidf invertedOruIndex
+      tfidf' = tfidf (fmap (HashMap.intersectionWith (,) frontmatterByFilePath) invertedOruIndex)
   Warp.run 3000 (Cors.simpleCors (app tfidf'))
 
-app :: (Text -> HashMap Filename Double) -> Application
+onLeft :: (forall a. String -> a) -> Either String success -> success
+onLeft handle = \case
+  Left err -> handle err
+  Right success -> success
+
+app :: (Text -> HashMap Filename (Comment.Frontmatter, Double)) -> Application
 app tfidf' request response = do
   Debug.traceShowM request
 
@@ -81,13 +92,22 @@ app tfidf' request response = do
           <&> (Text.decodeUtf8 >>> tfidf')
           & Maybe.fromMaybe mempty
           & HashMap.toList
-          & List.sortOn (Down <<< snd)
+          & List.sortOn (Down <<< snd <<< snd)
           & take 20
           & map
-            ( \(slug, score) ->
+            ( \(slug, (Comment.Frontmatter {..}, score)) ->
                 -- TODO: Clean up???
                 ( PreviewComment
-                    (Comment (Internals {commentTitle = "TODO", commentSlug = Text.pack slug, commentRating = Nothing}) Preview),
+                    ( Comment
+                        ( Internals
+                            { commentTitle = frontmatterCommentTitle,
+                              commentMovieTitle = frontmatterMovieTitle,
+                              commentSlug = Text.pack slug,
+                              commentRating = frontmatterRating
+                            }
+                        )
+                        Preview
+                    ),
                   realToFrac score :: Float
                 )
             )
@@ -125,12 +145,12 @@ inverseDocumentFrequency frequencies term = do
   log (fromIntegral (total - totalWithTerm) / fromIntegral totalWithTerm)
 
 tfidf ::
-  InvertedOruIndex ->
+  HashMap Text (HashMap Filename (a, Double)) ->
   -- | search
   Text ->
   -- | score
-  HashMap Filename Double
+  HashMap Filename (a, Double)
 tfidf index search = do
   let terms = Maybe.mapMaybe normalize (Text.words search)
       fnmap = terms <&> \term -> HashMap.lookupDefault mempty term index
-  foldr (HashMap.unionWith (+)) mempty fnmap
+  foldr (HashMap.unionWith (\(k, v) (_, v') -> (k, v + v'))) mempty fnmap
