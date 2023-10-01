@@ -67,7 +67,7 @@ instance HasJsonEncodingSpec (Comment Preview) where
   type EncodingSpec (Comment Preview) = PreviewCommentSpec
   toJSONStructure (Comment (Internals {..}) Preview) =
     Field @"title" commentTitle
-      /\ Field @"movieTitle" commentTitle
+      /\ Field @"movieTitle" commentMovieTitle
       /\ Field @"slug" commentSlug
       /\ Field @"rating" commentRating
       /\ ()

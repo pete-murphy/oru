@@ -7,7 +7,6 @@ import Control.Monad qualified as Monad
 import Data.Aeson qualified as Aeson
 import Data.Char qualified as Char
 import Data.Foldable qualified as Foldable
-import Data.Frontmatter qualified as Frontmatter
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.HashMap.Lazy (HashMap)
@@ -20,6 +19,7 @@ import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as Text
 import Data.Traversable qualified as Traversable
+import Data.Void (Void)
 import Debug.Trace qualified as Debug
 import Network.HTTP.Types qualified as HTTP.Types
 import Network.HTTP.Types.Header qualified as Header
@@ -31,14 +31,16 @@ import Oru.Comment (Comment (..), Internals (..), Preview (..), PreviewComment (
 import Oru.Comment qualified as Comment
 import System.Directory qualified as Directory
 import System.FilePath ((</>))
+import Text.Megaparsec (Parsec)
+import Text.Megaparsec qualified as Megaparsec
+import Text.Megaparsec.Char qualified as Megaparsec.Char
+import Text.Megaparsec.Char.Lexer qualified as Megaparsec.Char.Lexer
 import Prelude
 
 type Filename = String
 
 type OruIndex =
   HashMap Filename TermFrequency
-
--- type InvertedOruIndex =
 
 type TermCount =
   HashMap Text Int
@@ -55,9 +57,9 @@ main = do
     HashMap.fromList
       <$> Traversable.for filePaths \filePath -> do
         contents <- Text.readFile (commentsDirectory </> filePath)
-        let frontmatter :: Comment.Frontmatter =
-              Frontmatter.parseYamlFrontmatterEither (Text.encodeUtf8 contents)
-                & onLeft \msg -> error ("Failed to parse " <> filePath <> ":\n\n" <> msg)
+        let frontmatter =
+              Megaparsec.runParser frontmatterParser filePath contents
+                & onLeft \parseError -> error ("[ERROR] Failed to parse frontmatter: " <> filePath <> "\n" <> Megaparsec.errorBundlePretty parseError)
             count = termCount contents
         pure (filePath, (frontmatter, termFrequency count))
 
@@ -76,7 +78,7 @@ main = do
       tfidf' = tfidf (fmap (HashMap.intersectionWith (,) frontmatterByFilePath) invertedOruIndex)
   Warp.run 3000 (Cors.simpleCors (app tfidf'))
 
-onLeft :: (forall a. String -> a) -> Either String success -> success
+onLeft :: (forall a. e -> a) -> Either e success -> success
 onLeft handle = \case
   Left err -> handle err
   Right success -> success
@@ -116,7 +118,6 @@ app tfidf' request response = do
   response do
     Wai.responseLBS
       HTTP.Types.status200
-      -- [(Header.hContentType, "text/plain")]
       [(Header.hContentType, "application/json")]
       result
 
@@ -154,3 +155,17 @@ tfidf index search = do
   let terms = Maybe.mapMaybe normalize (Text.words search)
       fnmap = terms <&> \term -> HashMap.lookupDefault mempty term index
   foldr (HashMap.unionWith (\(k, v) (_, v') -> (k, v + v'))) mempty fnmap
+
+type Parser = Parsec Void Text
+
+frontmatterParser :: Parser Comment.Frontmatter
+frontmatterParser = do
+  _ <- "---" *> Megaparsec.Char.newline
+  frontmatterMovieTitle <- fmap Text.pack do
+    "movie title: " *> Megaparsec.manyTill (Megaparsec.anySingleBut '\n') Megaparsec.Char.newline
+  frontmatterCommentTitle <- fmap Text.pack do
+    "comment title: " *> Megaparsec.manyTill (Megaparsec.anySingleBut '\n') Megaparsec.Char.newline
+  frontmatterRating <-
+    ("rating: " *> Megaparsec.optional Megaparsec.Char.Lexer.decimal)
+      <* Megaparsec.Char.newline
+  pure Comment.Frontmatter {..}

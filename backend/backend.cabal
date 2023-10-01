@@ -34,7 +34,6 @@ common common
     , containers
     , directory
     , filepath
-    , frontmatter
     , http-client
     , http-client-tls
     , http-types
@@ -42,6 +41,7 @@ common common
     , json-spec-elm
     , lens
     , lens-aeson
+    , megaparsec
     , mtl
     , postgresql-simple
     , servant
