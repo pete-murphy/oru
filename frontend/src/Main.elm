@@ -16,9 +16,9 @@ import Url.Parser.Query
 
 
 type alias Model =
-    { search : String
+    { session : Navigation.Key
+    , search : String
     , response : Maybe (List ( Comment Preview, Float ))
-    , session : Navigation.Key
     }
 
 
@@ -34,9 +34,21 @@ main =
         }
 
 
+maybeSearchFromUrl : Url -> Maybe String
+maybeSearchFromUrl url =
+    { url | path = "" }
+        |> Url.Parser.parse (Url.Parser.query (Url.Parser.Query.string "q"))
+        |> Maybe.andThen (\maybeSearch -> maybeSearch)
+
+
 init : () -> Url -> Navigation.Key -> ( Model, Cmd Msg )
-init _ _ key =
-    ( { response = Nothing, search = "", session = key }, Cmd.none )
+init _ url key =
+    ( { session = key
+      , search = Maybe.withDefault "" (maybeSearchFromUrl url)
+      , response = Nothing
+      }
+    , Cmd.none
+    )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -77,15 +89,10 @@ update msg model =
             )
 
         UrlChanged url ->
-            let
-                maybeSearch =
-                    { url | path = "" }
-                        |> Url.Parser.parse (Url.Parser.query (Url.Parser.Query.string "q"))
-            in
-            case maybeSearch of
-                Just (Just search) ->
+            case maybeSearchFromUrl url of
+                Just search ->
                     ( { model | search = search }
-                    , Comment.listWithSearch model.search GotResponse
+                    , Comment.listWithSearch search GotResponse
                     )
 
                 _ ->
@@ -110,7 +117,7 @@ view model =
             [ Attributes.class "flex flex-col"
             ]
             [ Html.div
-                [ Attributes.class "h-[20vh]"
+                [ Attributes.class "h-[max(0rem,calc(25vh-4rem))]"
                 ]
                 []
             , Html.div
@@ -126,7 +133,7 @@ view model =
                             [ Attributes.class "py-2 w-[20ch] outline-none bg-transparent"
                             , Attributes.type_ "search"
                             , Attributes.placeholder "Search"
-                            , Attributes.value model.search
+                            , Attributes.attribute "defaultValue" model.search
                             , Events.onInput SearchChanged
                             ]
                             []
