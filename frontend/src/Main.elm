@@ -7,8 +7,8 @@ import Html
 import Html.Attributes as Attributes
 import Html.Events as Events
 import Http
+import Icon
 import Maybe exposing (Maybe(..))
-import Slug
 import Url exposing (Url)
 import Url.Builder
 import Url.Parser
@@ -43,23 +43,38 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GotResponse (Ok response) ->
-            ( { model | response = Just response }, Cmd.none )
+            ( { model | response = Just response }
+            , Cmd.none
+            )
 
         GotResponse (Err error) ->
             let
                 _ =
                     Debug.log "error" error
             in
-            ( { model | response = Just [] }, Cmd.none )
+            ( { model | response = Just [] }
+            , Cmd.none
+            )
 
-        SubmitForm ->
-            ( model, Comment.listWithSearch model.search GotResponse )
+        FormSubmitted ->
+            ( model
+            , Comment.listWithSearch model.search GotResponse
+            )
 
-        SetSearch search ->
-            ( model, Navigation.pushUrl model.session (Url.Builder.relative [] [ Url.Builder.string "q" search ]) )
+        SearchChanged search ->
+            ( model
+            , Navigation.pushUrl
+                model.session
+                (Url.Builder.relative
+                    []
+                    [ Url.Builder.string "q" search ]
+                )
+            )
 
         UrlRequested _ ->
-            ( model, Cmd.none )
+            ( model
+            , Cmd.none
+            )
 
         UrlChanged url ->
             let
@@ -69,75 +84,91 @@ update msg model =
             in
             case maybeSearch of
                 Just (Just search) ->
-                    ( { model | search = search }, Cmd.none )
+                    ( { model | search = search }
+                    , Comment.listWithSearch model.search GotResponse
+                    )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( model
+                    , Cmd.none
+                    )
 
 
 type Msg
-    = SubmitForm
-    | SetSearch String
+    = FormSubmitted
+    | SearchChanged String
     | GotResponse (Result Http.Error (List ( Comment Preview, Float )))
     | UrlRequested Browser.UrlRequest
     | UrlChanged Url
 
 
-
--- get : String -> Cmd Msg
--- get search =
---     Http.get
---         -- Http.re
---         { url =
---             Url.Builder.crossOrigin
---                 "http://localhost:3000"
---                 []
---                 [ Url.Builder.string "q" search ]
---         , expect =
---             Http.expectString GotResponse
---         }
-
-
 view : Model -> Browser.Document Msg
 view model =
-    let
-        renderedResponse =
-            case model.response of
-                Just response ->
-                    Html.ul []
-                        (response
-                            |> List.map
-                                (\( Comment { title, movieTitle, rating } Preview, score ) ->
-                                    Html.li []
-                                        [ Html.div []
-                                            [ Html.text title
-                                            , Html.text movieTitle
-                                            ]
-                                        , Html.text (Maybe.withDefault "N/A" (Maybe.map String.fromInt rating))
-                                        , Html.text (String.fromFloat score)
-                                        ]
-                                 -- Slug.toString slug ++ ": " ++ String.fromFloat score
-                                )
-                        )
-
-                Nothing ->
-                    Html.p [] [ Html.text "Nothing" ]
-    in
     Browser.Document
         "Oru"
-        [ Html.div []
-            [ Html.form [ Events.onSubmit SubmitForm ]
-                [ Html.input
-                    [ Attributes.type_ "search"
-                    , Attributes.value model.search
-                    , Events.onInput SetSearch
-                    ]
-                    []
-                , Html.button
-                    [ Attributes.class "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                    ]
-                    [ Html.text "Search" ]
+        [ Html.main_
+            [ Attributes.class "flex flex-col"
+            ]
+            [ Html.div
+                [ Attributes.class "h-[20vh]"
                 ]
-            , renderedResponse
+                []
+            , Html.div
+                [ Attributes.class "sticky top-0 bg-white p-4 shadow-sm" ]
+                [ Html.form
+                    [ Attributes.class "flex gap-4"
+                    , Events.onSubmit FormSubmitted
+                    ]
+                    [ Html.div
+                        [ Attributes.class "[&:has(:focus-visible)]:outline-blue-500 outline-none transition-all border border-gray-300 rounded-lg flex gap-2 items-center px-4" ]
+                        [ Icon.search
+                        , Html.input
+                            [ Attributes.class "py-2 w-[20ch] outline-none bg-transparent"
+                            , Attributes.type_ "search"
+                            , Attributes.placeholder "Search"
+                            , Attributes.value model.search
+                            , Events.onInput SearchChanged
+                            ]
+                            []
+                        ]
+                    ]
+                ]
+            , Html.div
+                [ Attributes.class "p-4 bg-gray-100" ]
+                (model.response
+                    |> Maybe.map (\res -> [ listResponse res ])
+                    |> Maybe.withDefault []
+                )
             ]
         ]
+
+
+listResponse : List ( Comment Preview, Float ) -> Html.Html Msg
+listResponse response =
+    Html.ul []
+        (response
+            |> List.map
+                (\( Comment { title, movieTitle, rating } Preview, score ) ->
+                    Html.li
+                        [ Attributes.class "mb-2" ]
+                        [ Html.div
+                            [ Attributes.class "font-bold flex gap-2" ]
+                            [ Html.span
+                                [ Attributes.class "text-gray-400" ]
+                                [ Html.text movieTitle ]
+                            , Html.span
+                                [ Attributes.class "text-gray-700" ]
+                                [ Html.text title ]
+                            ]
+                        , Html.div
+                            [ Attributes.class "flex gap-2 text-gray-500" ]
+                            [ Html.span
+                                []
+                                [ Html.text (Maybe.withDefault "N/A" (Maybe.map String.fromInt rating)) ]
+                            , Html.span
+                                []
+                                [ Html.text (String.fromFloat score) ]
+                            ]
+                        ]
+                )
+        )
