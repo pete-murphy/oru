@@ -43,11 +43,17 @@ maybeSearchFromUrl url =
 
 init : () -> Url -> Navigation.Key -> ( Model, Cmd Msg )
 init _ url key =
+    let
+        maybeSearch =
+            maybeSearchFromUrl url
+    in
     ( { session = key
-      , search = Maybe.withDefault "" (maybeSearchFromUrl url)
+      , search = Maybe.withDefault "" maybeSearch
       , response = Nothing
       }
-    , Cmd.none
+    , maybeSearch
+        |> Maybe.map (\search -> Comment.listWithSearch search GotResponse)
+        |> Maybe.withDefault Cmd.none
     )
 
 
@@ -62,7 +68,7 @@ update msg model =
         GotResponse (Err error) ->
             let
                 _ =
-                    Debug.log "error" error
+                    Debug.toString error
             in
             ( { model | response = Just [] }
             , Cmd.none
@@ -75,7 +81,7 @@ update msg model =
 
         SearchChanged search ->
             ( model
-            , Navigation.pushUrl
+            , Navigation.replaceUrl
                 model.session
                 (Url.Builder.relative
                     []
