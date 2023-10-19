@@ -8,6 +8,7 @@ import Html.Attributes as Attributes
 import Html.Events as Events
 import Http
 import Icon
+import Json.Encode
 import Maybe exposing (Maybe(..))
 import Url exposing (Url)
 import Url.Builder
@@ -98,7 +99,11 @@ update msg model =
             case maybeSearchFromUrl url of
                 Just search ->
                     ( { model | search = search }
-                    , Comment.listWithSearch search GotResponse
+                    , Cmd.batch
+                        [ -- Cancel previous search
+                          Http.cancel model.search
+                        , Comment.listWithSearch search GotResponse
+                        ]
                     )
 
                 _ ->
@@ -139,7 +144,7 @@ view model =
                             [ Attributes.class "py-2 w-[20ch] outline-none bg-transparent"
                             , Attributes.type_ "search"
                             , Attributes.placeholder "Search"
-                            , Attributes.attribute "defaultValue" model.search
+                            , Attributes.property "defaultValue" (Json.Encode.string model.search)
                             , Events.onInput SearchChanged
                             ]
                             []

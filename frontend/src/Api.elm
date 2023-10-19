@@ -1,6 +1,7 @@
 module Api exposing
     ( decodeErrors
     , get
+    , getWithTracker
     )
 
 {-| This module is responsible for communicating to the API.
@@ -17,6 +18,11 @@ import Url exposing (Protocol(..))
 
 get : Endpoint -> (Result Http.Error a -> msg) -> Decoder a -> Cmd msg
 get url toMsg decoder =
+    getWithTracker Nothing url toMsg decoder
+
+
+getWithTracker : Maybe String -> Endpoint -> (Result Http.Error a -> msg) -> Decoder a -> Cmd msg
+getWithTracker tracker url toMsg decoder =
     Endpoint.request
         { method = "GET"
         , url = url
@@ -24,7 +30,7 @@ get url toMsg decoder =
         , headers = []
         , body = Http.emptyBody
         , timeout = Nothing
-        , tracker = Nothing
+        , tracker = tracker
         }
 
 

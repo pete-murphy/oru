@@ -167,7 +167,6 @@ get id toMsg =
 
 list : (Result Http.Error (List ( Comment Preview, Float )) -> msg) -> Cmd msg
 list toMsg =
-    -- Api.get (Endpoint.comments []) toMsg (Decode.list decoderPreview)
     let
         decoder_ =
             Decode.map2 Tuple.pair
@@ -185,7 +184,8 @@ listWithSearch search toMsg =
                 (Decode.index 0 decoderPreview)
                 (Decode.index 1 Decode.float)
     in
-    Api.get
+    Api.getWithTracker
+        (Just search)
         (Endpoint.comments
             [ Url.Builder.string "q" search
             ]
